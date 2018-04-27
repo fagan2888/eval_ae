@@ -44,6 +44,10 @@ def compute_metrics(tup, num_samples, work_dir, batch_size, recompute):
         logging.error(' -- Samples and training reconstruction already available')
         gen = np.load(samples_path)
         train_reconstr = np.load(reconstr_path)
+    elif os.path.exists(samples_path) and not os.path.exists(reconstr_path) and recompute == 'no':
+        logging.error(' -- Samples already available but reconstructions are not. Evaluating only samples')
+        gen = np.load(samples_path)
+        train_reconstr = None
     else:
         logging.error(' -- Generating samples and training reconstructions')
         data = DataHandler(opts)
@@ -73,18 +77,24 @@ def compute_metrics(tup, num_samples, work_dir, batch_size, recompute):
     # 4. Computing FID of generated samples
     logging.error(' -- Computing FID of generated samples')
     fid_gen = fid_using_samples((data_mu, data_cov), gen, batch_size)
-    logging.error(' -- Computing FID of reconstructed training images')
-    fid_reconstr = fid_using_samples((data_mu, data_cov),
-                                     train_reconstr, batch_size)
+    if train_reconstr is not None:
+        logging.error(' -- Computing FID of reconstructed training images')
+        fid_reconstr = fid_using_samples((data_mu, data_cov),
+                                         train_reconstr, batch_size)
+    else:
+        fid_reconstr = None
+
     if type(fid_gen) != tuple:
         return None
+
     np.savez(os.path.join(model_path, model_filename + '.fidstats' + \
             str(num_samples)),
             mu_gen=fid_gen[1],
             cov_gen=fid_gen[2],
-            mu_rec=fid_reconstr[1],
-            cov_rec=fid_reconstr[2])
-    return fid_gen[0], fid_reconstr[0]
+            mu_rec=None if fid_reconstr is None else fid_reconstr[1],
+            cov_rec=None if fid_reconstr is None else fid_reconstr[2])
+
+    return fid_gen[0], None if fid_reconstr is None else fid_reconstr[0]
 
 def model_details(param_filename, work_dir):
     with open(param_filename, 'r') as f:

@@ -2,12 +2,17 @@ import numpy as np
 import os
 import sys
 import logging
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import argparse
 from eval_utils import model_details
 from eval_utils import compute_metrics
 from eval_utils import compute_inception_stats
 from eval_utils import compute_blurriness
 from datahandler import DataHandler
+
+WIDTH = .35
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--path", default='..',
@@ -70,7 +75,8 @@ def main():
                 fid_gen = float(lines[0].split('FID=')[1].split(',')[0])
                 fid_reconstr = float(lines[0].split('FID=')[2].split(',')[0])
                 logging.error('Model %s already processed' % chdir)
-                logging.error('FID=%f, computed using %d samples' % (fid, FLAGS.num_samples))
+                logging.error('sample FID=%f, reconstruction FID=%f, computed using %d samples' %\
+                        (fid_gen, fid_reconstr, FLAGS.num_samples))
                 models_fid[os.path.join(path, name)] = (fid_gen, fid_reconstr)
                 continue
             else:
@@ -138,6 +144,8 @@ def main():
             os.remove(os.path.join(tup[1], tup[2] + '.fid' + str(FLAGS.num_samples) + '.tmp'))
             continue
         fid_gen, fid_reconstr = fid
+        if fid_reconstr is None:
+            fid_reconstr = -1.
         with open(os.path.join(tup[1], tup[2] + '.fid' + str(FLAGS.num_samples) + '.val'), 'w') as f:
             f.write('samples FID=%f, reconstruction FID=%f, computed using %d samples' % \
                     (fid_gen, fid_reconstr, FLAGS.num_samples))
@@ -147,6 +155,22 @@ def main():
         os.remove(os.path.join(tup[1], tup[2] + '.fid' + str(FLAGS.num_samples) + '.tmp'))
 
     logging.error(models_fid)
+
+    # Plotting output fig
+    res = models_fid.items()
+    res = sorted(res, key=lambda s: s[1][0])
+
+    x = np.arange(len(res))
+    y1 = [el[1][0] for el in res]
+    y2 = [el[1][1] for el in res]
+    fig = plt.figure(figsize=(20, 10))
+    plt.bar(x, y1, width=WIDTH, color='red')
+    plt.bar(x + WIDTH, y2, width=WIDTH, color='blue')
+    plt.xticks(x + WIDTH, [el[0] for el in res])
+    fig.autofmt_xdate()
+    plt.grid(axis='y')
+    fig.savefig(os.path.join(FLAGS.work_dir, 'fid.png'), format='png')
+    plt.close()
 
 main()
 
