@@ -74,6 +74,11 @@ def compute_metrics(tup, num_samples, work_dir, batch_size, recompute):
                  str(num_samples)),
                  sharp_gen=sample_sharp,
                  sharp_reconstr=reconstr_sharp)
+    # Just in case checking if pictures are properly normalized
+    if not np.all(gen >= 0):
+        gen = (gen + 1.) / 2.
+    if train_reconstr is not None and not np.all(train_reconstr >= 0):
+        train_reconstr = (train_reconstr + 1.) / 2.
     # 4. Computing FID of generated samples
     logging.error(' -- Computing FID of generated samples')
     fid_gen = fid_using_samples((data_mu, data_cov), gen, batch_size)
